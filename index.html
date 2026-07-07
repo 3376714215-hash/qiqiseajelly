@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 日报 · 日历</title>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --text-secondary: #86868b;
+    --accent: #0071e3;
+    --accent-light: #e8f0fe;
+    --border: #e5e5e7;
+    --today-bg: #0071e3;
+    --today-text: #ffffff;
+    --dot-color: #0071e3;
+    --hover-bg: #f0f0f2;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --radius: 12px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e;
+      --card: #2c2c2e;
+      --text: #f5f5f7;
+      --text-secondary: #98989d;
+      --accent: #4da6ff;
+      --accent-light: #1a2a3a;
+      --border: #3a3a3c;
+      --today-bg: #4da6ff;
+      --today-text: #1c1c1e;
+      --dot-color: #4da6ff;
+      --hover-bg: #3a3a3c;
+      --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    max-width: 1100px;
+    min-height: 560px;
+  }
+
+  /* ---- Calendar Panel ---- */
+  .calendar-panel {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px 24px 24px;
+    flex: 0 0 420px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+  }
+
+  .calendar-header h2 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .nav-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .nav-btn:hover { background: var(--hover-bg); }
+  .nav-btn:active { transform: scale(0.95); }
+
+  .today-btn-wrap {
+    text-align: center;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+
+  .today-btn {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: var(--accent-light);
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .today-btn:hover {
+    background: var(--accent);
+    color: var(--today-text);
+  }
+
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
+
+  .days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+    gap: 2px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .day-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.12s;
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+    min-width: 0;
+    min-height: 0;
+    aspect-ratio: 1;
+  }
+
+  .day-cell:hover {
+    background: var(--hover-bg);
+  }
+
+  .day-cell.empty,
+  .day-cell.other-month { cursor: default; }
+  .day-cell.empty:hover,
+  .day-cell.other-month:hover { background: transparent; }
+
+  .day-cell.today {
+    background: var(--today-bg);
+    color: var(--today-text);
+    font-weight: 700;
+  }
+
+  .day-cell.today:hover { opacity: 0.9; }
+
+  .day-cell.selected {
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+
+  .day-cell.today.selected {
+    box-shadow: inset 0 0 0 2px var(--today-text);
+  }
+
+  .day-cell.has-report::after {
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--dot-color);
+  }
+
+  .day-cell.today.has-report::after {
+    background: var(--today-text);
+  }
+
+  .day-cell.other-month {
+    color: var(--text-secondary);
+    opacity: 0.35;
+  }
+
+  /* ---- Report Panel ---- */
+  .report-panel {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px 28px 24px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .report-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    text-align: center;
+    gap: 12px;
+  }
+
+  .report-placeholder .icon {
+    font-size: 48px;
+    opacity: 0.5;
+  }
+
+  .report-placeholder p {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .report-placeholder .hint {
+    font-size: 13px;
+    opacity: 0.6;
+  }
+
+  .report-content {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 15px;
+    line-height: 1.8;
+    padding-right: 4px;
+  }
+
+  .report-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .report-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .report-content::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  .report-content h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--accent);
+  }
+
+  .report-content .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 16px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .report-content .item {
+    margin-bottom: 10px;
+    padding-left: 4px;
+  }
+
+  .report-content .item .title {
+    font-weight: 600;
+  }
+
+  .report-content .item .source {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 1px;
+  }
+
+  .report-content .item .source a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .report-content .item .source a:hover {
+    text-decoration: underline;
+  }
+
+  .report-content .highlight {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: var(--accent-light);
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.7;
+    border-left: 3px solid var(--accent);
+  }
+
+  .report-content .highlight strong {
+    color: var(--accent);
+  }
+
+  .report-date-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
+
+  .report-date-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .footer-info {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .footer-info .count {
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 860px) {
+    .container {
+      flex-direction: column;
+      max-width: 500px;
+    }
+
+    .calendar-panel {
+      flex: 0 0 auto;
+    }
+
+    .report-panel {
+      min-height: 300px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 10px; }
+    .calendar-panel { padding: 16px 12px 14px; flex: 0 0 auto; }
+    .report-panel { padding: 16px 14px 14px; }
+    .day-cell { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Calendar -->
+  <div class="calendar-panel">
+    <div class="calendar-header">
+      <button class="nav-btn" id="prevMonth" title="上个月">&larr;</button>
+      <h2 id="monthYear"></h2>
+      <button class="nav-btn" id="nextMonth" title="下个月">&rarr;</button>
+    </div>
+    <div class="today-btn-wrap">
+      <button class="today-btn" id="goToday">回到今天</button>
+    </div>
+    <div class="weekdays">
+      <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+    </div>
+    <div class="days-grid" id="daysGrid"></div>
+    <div class="footer-info">
+      <span>AI 日报 · 日历归档</span>
+      <span class="count" id="reportCount"></span>
+    </div>
+  </div>
+
+  <!-- Report -->
+  <div class="report-panel" id="reportPanel">
+    <div class="report-placeholder" id="reportPlaceholder">
+      <div class="icon">📰</div>
+      <p>点击日历中带圆点的日期<br>查看当日 AI 日报</p>
+      <p class="hint">蓝点 = 当日有 AI 日报</p>
+    </div>
+    <div class="report-content" id="reportContent" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ── Inline initial data (fallback when fetch fails) ──
+  const INITIAL_DATA = {
+    lastUpdated: "2026-07-07T10:27:00+08:00",
+    reports: [
+      {
+        date: "2026-07-02",
+        content: "📢 AI日报-2026年7月2日\n【热点速览】\n\n1.📌 UAE主权基金MGX关闭490亿美元AI巨型基金，OpenAI与Anthropic为主要受益方\n   来源：Bloomberg | https://www.bloomberg.com/news/articles/2026-07-01/mgx-closes-49-billion-ai-fund\n\n2.📌 Anthropic发布Claude Sonnet 5，性能接近旗舰Opus 4.8，价格仅为其六成\n   来源：Anthropic | https://www.anthropic.com/news/claude-sonnet-5\n\n3.📌 谷歌发布Nano Banana 2 Lite图像模型，4秒出图成本仅$0.034\n   来源：Google Blog | https://blog.google/technology/ai/nano-banana-2-lite/\n\n4.📌 Meta宣布计划推出云业务，出售富余AI算力直接对标AWS/Azure/谷歌云\n   来源：The Verge | https://www.theverge.com/2026/7/1/meta-cloud-business-ai-compute\n\n5.📌 软银通过愿景基金II再向OpenAI追投10亿美元，10月计划完成第三笔同等投资\n   来源：Reuters | https://www.reuters.com/technology/softbank-vision-fund-2-openai-investment-2026-07-01/\n\n6.📌 Cloudflare将于9月15日封锁AI爬虫访问广告媒体内容，逼迫AI公司付费授权\n   来源：TechCrunch | https://techcrunch.com/2026/07/01/cloudflare-block-ai-crawlers/\n\n7.📌 隐私AI平台Venice AI完成6500万美元A轮，估值突破10亿美元成独角兽\n   来源：TechCrunch | https://techcrunch.com/2026/07/01/venice-ai-series-a/\n\n8.📌 美团LongCat-2.0发布，1.6万亿参数大模型全程依托国产五万卡算力完成训练并开源\n   来源：GitHub | https://github.com/Meituan-Dianping/LongCat\n\n9.📌 X平台正式上线托管MCP服务器，AI工具可直连API获取实时数据\n   来源：x.ai | https://x.ai/blog/mcp-server-launch\n\n【今日重点】\n算力投资热度不减（MGX 490亿基金、软银追投OpenAI），国内国产大模型自主化迈出重要一步（美团LongCat-2.0全链路国产算力），海外AI版权保护收紧（Cloudflare新政策）值得持续关注。"
+      },
+      {
+        date: "2026-07-03",
+        content: "📢 AI日报-2026年7月3日\n【热点速览】\n\n1.📌 Meta宣布对外出售闲置AI算力，全球芯片板块暴跌，费城半导体指数单日跌6%\n   来源：Bloomberg | https://www.bloomberg.com/news/articles/2026-07-02/meta-sell-ai-compute-chip-stocks-fall\n\n2.📌 快手可灵AI获腾讯30亿美元参投，投后估值180亿美元，计划12个月内独立赴港上市\n   来源：36氪 | https://36kr.com/p/2859407632587648\n\n3.📌 OpenAI提议无偿划转5%股权设立全民AI基金，对标阿拉斯加石油永久基金模式\n   来源：FT | https://www.ft.com/content/openai-5-percent-public-ai-fund\n\n4.📌 阿里官宣企业Agent生态整合升级：QoderWork统一打通悟空Agent与MuleRun自动化引擎\n   来源：阿里云 | https://www.aliyun.com/news/agent-ecosystem-upgrade\n\n5.📌 联合国发布首份权威AI风险治理报告：技术增速远超管控体系，呼吁全球统一规则\n   来源：Reuters | https://www.reuters.com/technology/un-ai-risk-governance-report-2026-07-02/\n\n6.📌 xAI上线Voice Agent Builder无代码语音智能体平台，2分钟零代码搭建商用电话客服\n   来源：x.ai | https://x.ai/blog/voice-agent-builder\n\n7.📌 OpenAI技术论文首次披露GPT-5.6三款Pro分层变体（Luna/Terra/Sol），算力性能红利触顶\n   来源：OpenAI | https://openai.com/research/gpt-5-6-pro-variants\n\n8.📌 昆仑万维天工3.2上线Skywork Tags，AI智能体直接嵌入飞书/钉钉/企业微信成为团队数字同事\n   来源：机器之心 | https://jiqizhixin.com/articles/2026-07-02-8\n\n【今日重点】\n算力格局突变：Meta释放闲置算力直接砸崩芯片板块，通用算力过剩与专用算力紧缺的分化正式揭幕。资本暗流汹涌：腾讯巨额押注快手的可灵AI，独立上市路径清晰；OpenAI方面则试图用全民股权共享方案换取宽松监管。整体信号明确——AI行业正从\"堆硬件扩产能\"全面转向\"精细化运营与商业化变现\"的下半场。"
+      },
+      {
+        date: "2026-07-04",
+        content: "📢 AI日报-2026年7月4日\n【热点速览】\n\n1.📌 千问、豆包智能体功能将于7月15日下线，国内AI拟人化服务进入监管新阶段\n   来源：财新 | https://www.caixin.com/2026-07-04/102460928.html\n\n2.📌 全球首例AI Agent自主勒索攻击JADEPUFFER曝光，全程无需人工干预\n   来源：Sysdig | https://sysdig.com/blog/ai-agent-ransomware-jadepuffer\n\n3.📌 阿里巴巴宣布全面禁用Claude，7月10日正式生效要求全员卸载\n   来源：多知 | https://www.duozhi.com/2026-07-04/alibaba-ban-claude\n\n4.📌 Meta拟推出Meta Compute，向外部客户开放AI算力与模型访问\n   来源：彭博社/量子位 | https://www.qbitai.com/2026/07/443606.html\n\n5.📌 OpenAI提议向美国主权基金捐赠5%股权，价值约426亿美元\n   来源：量子位 | https://www.qbitai.com/2026/07/443606.html\n\n6.📌 DeepSeek V4正式版7月中旬登陆腾讯云，首创峰谷定价机制\n   来源：36氪/IT之家 | https://36kr.com/p/2888888888888888\n\n7.📌 AI用28个GPU小时发现4种全新超导体，效率相当于人工探索百年\n   来源：无矩AI | https://iaipie.com/2026-年-7-月-4-日-ai-行业资讯速览/\n\n8.📌 生数科技发布Vidu S1实时交互视频模型，支持语音控制数字人行为\n   来源：无矩AI | https://iaipie.com/2026-年-7-月-4-日-ai-行业资讯速览/\n\n【今日重点】\n国内监管信号明确：千问和豆包同步下线智能体功能，阿里全面禁用Claude，国内AI平台合规化进入集中调整期。安全警钟再响：全球首例AI Agent自主勒索攻击标志着网络黑灰产正式进入全自动时代，AI安全攻防成为企业必修课。"
+      },
+      {
+        date: "2026-07-05",
+        content: "📢 AI日报-2026年7月5日\n【热点速览】\n\n1.📌 Anthropic联手三星推进2nm制程AI芯片，招募前OpenAI芯片工程师\n   来源：The Information | https://www.theinformation.com/newsletters/anthropic-samsung-chip\n\n2.📌 Claude Fable 5重上架后用户反馈\"降智\"，频繁因安全护栏触发回退\n   来源：无矩AI | https://iaipie.com/2026年7月5日ai行业资讯速览/\n\n3.📌 字节Seedance 2.5将于7月6日上线体验中心，一周后开放API\n   来源：无矩AI | https://iaipie.com/2026年7月5日ai行业资讯速览/\n\n4.📌 全球首例AI Agent勒索攻击JADEPUFFER持续发酵，企业安全面临新挑战\n   来源：Sysdig | https://sysdig.com/blog/ai-agent-ransomware-jadepuffer\n\n5.📌 DeepSeek V4正式版定档7月中旬，腾讯云上线引入峰谷定价机制\n   来源：无矩AI | https://iaipie.com/2026年7月5日ai行业资讯速览/\n\n6.📌 AI用28个GPU小时发现4种全新超导体，材料科学迎来突破性加速\n   来源：无矩AI | https://iaipie.com/2026年7月5日ai行业资讯速览/\n\n7.📌 桥水基金测试AI金融判断：GPT/Claude/Gemini准确率仅50%-70%\n   来源：无矩AI | https://iaipie.com/2026年7月5日ai行业资讯速览/\n\n8.📌 韩国拟用AI税收红利投入\"主权AI\"，支持本土算力底座与基础模型研发\n   来源：无矩AI | https://iaipie.com/2026年7月5日ai行业资讯速览/\n\n【今日重点】\n芯片自主化加速：Anthropic效仿OpenAI路径启动自研芯片，三星2nm制程成为关键棋子。AI安全进入实战期：JADEPUFFER勒索攻击证明AI Agent已能独立完成全流程攻击。材料科学突破：AI辅助发现超导体效率远超人类传统方法，科学发现范式正在被改写。"
+      },
+      {
+        date: "2026-07-06",
+        content: "📢 AI日报-2026年7月6日\n【热点速览】\n\n1.📌 字节Seedance 2.5正式上线体验中心，三大全球首创能力升级视频生成\n   来源：火山引擎/字节跳动 | https://www.volcengine.com/news/seedance-2-5\n\n2.📌 月之暗面Kimi K3确认7月发布，2.5万亿参数刷新国产大模型规格上限\n   来源：Moonshot AI/AI TOP100 | https://www.aitop100.cn/tools/kimi\n\n3.📌 微软发布MAI系列七大自研模型，全部从零开始训练拒绝蒸馏方案\n   来源：Microsoft Build | https://build.microsoft.com/2026/mai-models\n\n4.📌 京东JoyAI上线UGC数字人功能，低成本打造专属AI陪伴分身\n   来源：京东AI | https://www.jd.com/ai/joy-ugc-digital-human\n\n5.📌 宇树科技预判具身智能2-5年迎来爆发，2030年人形机器人可自主完成80%日常任务\n   来源：亚布力论坛 | https://www.abf.com.cn/2026-conference/unitree\n\n6.📌 美图奇想大模型V6全面商用落地，Q1付费订阅用户增长30.2%\n   来源：美图公司港股财报 | https://www.meitu.com/financial/2026-q1\n\n7.📌 开发者社区涌现Deep Code和Pxpipe，推动AI成本降低59%-70%\n   来源：GitHub | https://github.com/pxpipe/pxpipe\n\n8.📌 NVIDIA发布Nemotron 3 Ultra，推理速度提升5倍，Agent成本降低30%\n   来源：NVIDIA | https://developer.nvidia.com/blog/nemotron-3-ultra\n\n【今日重点】\n国产AI视频能力全面突破：Seedance 2.5公测上线，月之暗面Kimi K3以2.5万亿参数挑战全球第一梯队。微软摆脱对OpenAI依赖：MAI七大自研模型标志大厂AI供应商格局多元化。开源生态创新：Deep Code和Pxpipe工具证明开发者正在自主搭建多模型切换、成本优化的基础设施。"
+      },
+      {
+        date: "2026-07-07",
+        content: "📢 AI日报-2026年7月7日\n【热点速览】\n\n1.📌 OpenAI正式发布GPT-5.6系列（Sol/Terra/Luna），Sol编程测试超越Claude Mythos 5\n   来源：OpenAI/36氪 | https://www.36kr.com/p/3884027229420160\n\n2.📌 腾讯混元3正式版发布，总参295B搜索追平GPT-5.5，幻觉率减半\n   来源：36氪/量子位 | https://www.qbitai.com/2026/07/443665.html\n\n3.📌 字节Seedance进入好莱坞长片工作流，95分钟电影两周15人完成\n   来源：量子位 | https://www.qbitai.com/2026/07/443665.html\n\n4.📌 美团开源万亿参数LongCat-2.0，零英伟达全流程跑通，原生支持100万Token上下文\n   来源：美团/无矩AI | https://github.com/Meituan-Dianping/LongCat\n\n5.📌 Claude Fable 5今日起全面转入按量计费，每百万输出Token定价50美元成全球最贵\n   来源：Anthropic/无矩AI | https://www.anthropic.com/pricing/fable-5\n\n6.📌 大厂AI步入\"大一统\"：微信\"小微\"、支付宝\"阿宝\"启动灰度，入口归一能力聚合\n   来源：36氪/商业新研社 | https://www.36kr.com/p/3884034614950534\n\n7.📌 Kimi K2.7 Code接入GitHub Copilot，成为该平台首个支持的开源模型\n   来源：月之暗面/微软 | https://github.com/copilot/kimi-k2-7-code\n\n8.📌 WAIC 2026筹备发布会召开，联合国AI for Good峰会与欧洲物理AI峰会同步开幕\n   来源：上海市政府/新华社 | https://www.xinhuanet.com/20260706/1ea52c477b6c40cfa3f1d94aa283f99c/c.html\n\n【今日重点】\nOpenAI与Anthropic正面交锋：GPT-5.6三模型矩阵发布当天，Claude Fable 5以全球最高定价全面转计费，OpenAI被曝正推出迁移策略争夺开发者。国产AI连获突破：腾讯混元3追平GPT-5.5，美团万亿参数模型零英伟达全流程跑通，国产AI能力正获得国际平台认可。全球AI峰会密集：WAIC、联合国AI for Good、欧洲物理AI峰会同日开幕，AI治理与具身智能成为全球共识议题。"
+      }
+    ]
+  };
+
+  // ── State ──
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayDate = new Date(todayStr + 'T00:00:00');
+  let currentMonth = todayDate.getMonth();
+  let currentYear = todayDate.getFullYear();
+  let selectedDate = todayStr;
+  let reportsMap = {};
+
+  // ── DOM ──
+  const monthYearEl = document.getElementById('monthYear');
+  const daysGrid = document.getElementById('daysGrid');
+  const reportPlaceholder = document.getElementById('reportPlaceholder');
+  const reportContent = document.getElementById('reportContent');
+  const reportCount = document.getElementById('reportCount');
+
+  // ── Init data from inline fallback ──
+  function initFromInline() {
+    reportsMap = {};
+    for (const r of INITIAL_DATA.reports) {
+      reportsMap[r.date] = r.content;
+    }
+    reportCount.textContent = Object.keys(reportsMap).length + ' 篇日报';
+    render();
+  }
+
+  // ── Try fetch external data ──
+  async function loadExternalData() {
+    try {
+      const resp = await fetch('data.json?' + Date.now());
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data && data.reports && data.reports.length > 0) {
+        reportsMap = {};
+        for (const r of data.reports) {
+          reportsMap[r.date] = r.content;
+        }
+        reportCount.textContent = Object.keys(reportsMap).length + ' 篇日报';
+        render();
+      }
+    } catch (e) {
+      console.warn('外部数据加载失败，使用内联数据:', e);
+      // 保持内联数据
+    }
+  }
+
+  // ── Render calendar (exactly 42 cells = 6 rows × 7 cols) ──
+  function render() {
+    monthYearEl.textContent = currentYear + '年 ' + (currentMonth + 1) + '月';
+
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const startDayOfWeek = firstDay.getDay(); // 0=Sun
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+    let html = '';
+    let cellCount = 0;
+    const MAX_CELLS = 42;
+
+    // Previous month leading days
+    for (let i = 0; i < startDayOfWeek && cellCount < MAX_CELLS; i++) {
+      const day = daysInPrevMonth - startDayOfWeek + 1 + i;
+      html += `<div class="day-cell other-month">${day}</div>`;
+      cellCount++;
+    }
+
+    // Current month days
+    for (let d = 1; d <= daysInMonth && cellCount < MAX_CELLS; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      let cls = 'day-cell';
+      if (dateStr === todayStr) cls += ' today';
+      if (dateStr === selectedDate) cls += ' selected';
+      if (reportsMap[dateStr]) cls += ' has-report';
+      html += `<div class="${cls}" data-date="${dateStr}">${d}</div>`;
+      cellCount++;
+    }
+
+    // Next month trailing days
+    let nextDay = 1;
+    while (cellCount < MAX_CELLS) {
+      html += `<div class="day-cell other-month">${nextDay}</div>`;
+      nextDay++;
+      cellCount++;
+    }
+
+    daysGrid.innerHTML = html;
+
+    // Click handlers
+    daysGrid.querySelectorAll('.day-cell:not(.other-month)').forEach(cell => {
+      cell.addEventListener('click', () => {
+        const dateStr = cell.dataset.date;
+        selectedDate = dateStr;
+        render();
+        showReport(dateStr);
+      });
+    });
+
+    // Show selected report
+    if (reportsMap[selectedDate]) {
+      showReport(selectedDate);
+    }
+  }
+
+  // ── Show report ──
+  function showReport(dateStr) {
+    const content = reportsMap[dateStr];
+    if (!content) {
+      reportPlaceholder.style.display = 'flex';
+      reportContent.style.display = 'none';
+      return;
+    }
+
+    reportPlaceholder.style.display = 'none';
+    reportContent.style.display = 'block';
+
+    const lines = content.split('\n');
+    let html = '';
+    let inItems = false;
+    let inHighlight = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      if (line.startsWith('📢')) {
+        html += `<h3>${escapeHtml(line)}</h3>`;
+        continue;
+      }
+
+      if (line.startsWith('【热点速览】')) {
+        html += `<div class="section-title">${escapeHtml(line)}</div>`;
+        inItems = true;
+        inHighlight = false;
+        continue;
+      }
+
+      if (line.startsWith('【今日重点】')) {
+        html += `<div class="section-title">${escapeHtml(line)}</div>`;
+        inItems = false;
+        inHighlight = true;
+        continue;
+      }
+
+      if (inItems && /^\d+\.📌/.test(line)) {
+        html += `<div class="item"><div class="title">${escapeHtml(line)}</div>`;
+        continue;
+      }
+
+      if (inItems && line.startsWith('来源：')) {
+        const match = line.match(/来源：(.+?)\s*\|\s*(https?:\/\/\S+)/);
+        if (match) {
+          html += `<div class="source">来源：${escapeHtml(match[1])} | <a href="${match[2]}" target="_blank" rel="noopener">${match[2]}</a></div>`;
+        } else {
+          html += `<div class="source">${escapeHtml(line)}</div>`;
+        }
+        html += `</div>`;
+        continue;
+      }
+
+      if (inHighlight) {
+        html += `<div class="highlight">${formatText(line)}</div>`;
+        continue;
+      }
+    }
+
+    reportContent.innerHTML = html;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function formatText(str) {
+    return str.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  }
+
+  // ── Navigation ──
+  document.getElementById('prevMonth').addEventListener('click', () => {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    render();
+  });
+
+  document.getElementById('nextMonth').addEventListener('click', () => {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    render();
+  });
+
+  document.getElementById('goToday').addEventListener('click', () => {
+    currentMonth = todayDate.getMonth();
+    currentYear = todayDate.getFullYear();
+    selectedDate = todayStr;
+    render();
+    if (reportsMap[todayStr]) showReport(todayStr);
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') document.getElementById('prevMonth').click();
+    else if (e.key === 'ArrowRight') document.getElementById('nextMonth').click();
+  });
+
+  // ── Init ──
+  initFromInline();
+  loadExternalData();
+})();
+</script>
+</body>
+</html>
